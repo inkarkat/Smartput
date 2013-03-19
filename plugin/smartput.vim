@@ -87,6 +87,7 @@ function! <sid>Smartput(putcmd)
 	return
     endif
     let put = getreg(reg)
+    let s:save_reg = [reg, put]
 
     " keep the "xp" trick working:
     if put =~ "^.$"
@@ -190,13 +191,20 @@ function! <sid>Smartput(putcmd)
     call cursor(curlnum, curcol+1-toofar)
     call setreg(reg, put)
     if asusual
-	exe "nn <sid>put" l:count.'"'.reg.putcmd
+	exe "nn <script> <sid>put" l:count.'"'.reg.putcmd."<sid>restore"
     else
 	" e.g. 3p -> p2p, 3P -> P2p, 3gp -> p2gp, 3gP -> P2gp
 	exe 'nn <sid>pone' '"'.reg.nogput."`]"
 	" recursive call
 	exe 'nmap <sid>put <sid>pone'.(l:count-1).'"'.reg.tolower(putcmd)
     endif
+endfunction
+
+" Restore: Undo the temporary register modification {{{1
+function! s:Restore()
+    call setreg(s:save_reg[0], s:save_reg[1])
+    unlet s:save_reg
+    return ''
 endfunction
 
 " SmartputToggle: toggle mapping of P, p, gP, gp {{{1
@@ -256,6 +264,7 @@ endfunc
 " Commands, Mappings, Inits: {{{1
 com! -bar -nargs=? -complete=custom,s:SmaToCompl SmartputToggle call s:SmartputToggle(<q-args>)
 nn <plug>SmartputToggle :SmartputToggle<cr>
+nn <silent> <expr> <sid>restore <sid>Restore()
 
 if !hasmapto("<plug>SmartputToggle", "n")
     try
