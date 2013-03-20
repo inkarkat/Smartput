@@ -77,28 +77,46 @@ function! s:BGval(varname)
     return exists("b:".a:varname) ? {"b:".a:varname} : {"g:".a:varname}
 endfunction
 
+" ActualRegister: the used register (with temporary replacement for expression register) {{{1
+function! s:ActualRegister()
+    if s:reg ==# '='
+	" Cannot evaluate the expression register within a function; referenced
+	" variables may have the wrong scope. Evaluation already took place in
+	" the mapping, with the result stored in g:smartput_expr. Temporarily
+	" use the default register for the paste.
+	let s:save_clipboard = [&clipboard, getreg('"'), getregtype('"')]
+	set clipboard=
+	call setreg('"', g:smartput_expr)
+	return '"'
+    else
+	unlet! s:save_clipboard
+	return s:reg
+    endif
+endfunction
+
 " Smartput: recognize words and adjust spaces and commas {{{1
 function! <sid>Smartput(putcmd)
     " putcmd: "P", "p", "gP" or "gp"
     let s:putcmd = a:putcmd
     let l:count = v:count1
-    let reg = v:register
-    if !s:enable || getregtype(reg) !=# 'v' || v:register =~ '[:.%#=_]'
-	exe "nn <script> <sid>put" l:count.'"'.reg.a:putcmd.'<sid>setrepeat'
+    let s:reg = v:register
+    let actualreg = s:ActualRegister()
+    if !s:enable || getregtype(actualreg) !=# 'v' || s:reg =~# '[:.%#_]'
+	exe "nn <script> <sid>put" l:count.'"'.actualreg.a:putcmd.'<sid>postput'
 	return
     endif
-    let put = getreg(reg)
-    let s:save_reg = [reg, put]
+    let put = getreg(actualreg)
+    let s:save_reg = [s:reg, put]
 
     " keep the "xp" trick working:
     if put =~ "^.$"
-	exe "nn <script> <sid>put" l:count.'"'.reg.a:putcmd.'<sid>setrepeat'
+	exe "nn <script> <sid>put" l:count.'"'.actualreg.a:putcmd.'<sid>postput'
 	return
     endif
 
     let put = substitute(put, '^\s*\|\s*$', '', 'g')
     if put == ""
-	nn <script> <sid>put <sid>setrepeat
+	nn <script> <sid>put <sid>postput
 	return
     endif
 
@@ -190,14 +208,14 @@ function! <sid>Smartput(putcmd)
 
     call setline(curlnum, leftcursor . rightcursor)
     call cursor(curlnum, curcol+1-toofar)
-    call setreg(reg, put)
+    call setreg(actualreg, put)
     if asusual
-	exe "nn <script> <sid>put" l:count.'"'.reg.putcmd."<sid>setrepeat<sid>restore"
+	exe "nn <script> <sid>put" l:count.'"'.actualreg.putcmd."<sid>postput<sid>restore"
     else
 	" e.g. 3p -> p2p, 3P -> P2p, 3gp -> p2gp, 3gP -> P2gp
-	exe 'nn <sid>pone' '"'.reg.nogput."`]"
+	exe 'nn <sid>pone' '"'.actualreg.nogput."`]"
 	" recursive call
-	exe 'nmap <sid>put <sid>pone'.(l:count-1).'"'.reg.tolower(putcmd)
+	exe 'nmap <sid>put <sid>pone'.(l:count-1).'"'.actualreg.tolower(putcmd)
     endif
 endfunction
 
@@ -208,7 +226,9 @@ endfunction
 
 " Restore: Undo the temporary register modification {{{1
 function! s:Restore()
-    call setreg(s:save_reg[0], s:save_reg[1])
+    if s:save_reg[0] !=# '='    " Cannot and need not restore the expression register.
+	call setreg(s:save_reg[0], s:save_reg[1])
+    endif
     unlet s:save_reg
     return ''
 endfunction
@@ -219,8 +239,16 @@ function! s:SetCount()
     silent! call repeat#setreg("\<plug>SmartputRepeat", v:register)
 endfunction
 
-" Repeat: Set up repeat.vim {{{1
-function! s:SetRepeat()
+" PostPut: Postprocessing: Undo temporary stuff and set up repeat.vim {{{1
+function! s:PostPut()
+    if exists('s:save_clipboard')
+	" Restore the default register that temporarily held the value of the
+	" expression register.
+	call setreg('"', s:save_clipboard[1], s:save_clipboard[2])
+	let &clipboard = s:save_clipboard[0]
+	unlet s:save_clipboard
+    endif
+
     silent! call repeat#set("\<plug>SmartputRepeat", s:count)
     return ''
 endfunction
@@ -257,10 +285,10 @@ function! s:SmartputToggle(arg)
 	return
     endif
     if s:enable
-	nn <script><silent> P  :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('P')<cr><sid>put
-	nn <script><silent> p  :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('p')<cr><sid>put
-	nn <script><silent> gP :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('gP')<cr><sid>put
-	nn <script><silent> gp :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('gp')<cr><sid>put
+	nn <script><silent> P  :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('P')<cr><sid>put
+	nn <script><silent> p  :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('p')<cr><sid>put
+	nn <script><silent> gP :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gP')<cr><sid>put
+	nn <script><silent> gp :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gp')<cr><sid>put
 	" XXX using <expr> would be much easier but exclude too many older
 	" Vim7s with the count bug
     else
@@ -282,9 +310,9 @@ endfunc
 " Commands, Mappings, Inits: {{{1
 com! -bar -nargs=? -complete=custom,s:SmaToCompl SmartputToggle call s:SmartputToggle(<q-args>)
 nn <plug>SmartputToggle :SmartputToggle<cr>
-nn <script> <plug>SmartputRepeat :<c-u>call<sid>SetCount()<bar>call<sid>SmartputRepeat()<cr><sid>put
+nn <script> <plug>SmartputRepeat :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>SmartputRepeat()<cr><sid>put
 nn <silent> <expr> <sid>restore <sid>Restore()
-nn <silent> <expr> <sid>setrepeat <sid>SetRepeat()
+nn <silent> <expr> <sid>postput <sid>PostPut()
 
 if !hasmapto("<plug>SmartputToggle", "n")
     try
