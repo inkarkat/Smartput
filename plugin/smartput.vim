@@ -80,10 +80,11 @@ endfunction
 " Smartput: recognize words and adjust spaces and commas {{{1
 function! <sid>Smartput(putcmd)
     " putcmd: "P", "p", "gP" or "gp"
+    let s:putcmd = a:putcmd
     let l:count = v:count1
     let reg = v:register
     if !s:enable || getregtype(reg) !=# 'v' || v:register =~ '[:.%#=_]'
-	exe "nn <sid>put" l:count.'"'.reg.a:putcmd
+	exe "nn <script> <sid>put" l:count.'"'.reg.a:putcmd.'<sid>setrepeat'
 	return
     endif
     let put = getreg(reg)
@@ -91,13 +92,13 @@ function! <sid>Smartput(putcmd)
 
     " keep the "xp" trick working:
     if put =~ "^.$"
-	exe "nn <sid>put" l:count.'"'.reg.a:putcmd
+	exe "nn <script> <sid>put" l:count.'"'.reg.a:putcmd.'<sid>setrepeat'
 	return
     endif
 
     let put = substitute(put, '^\s*\|\s*$', '', 'g')
     if put == ""
-	nn <sid>put <nop>
+	nn <script> <sid>put <sid>setrepeat
 	return
     endif
 
@@ -191,7 +192,7 @@ function! <sid>Smartput(putcmd)
     call cursor(curlnum, curcol+1-toofar)
     call setreg(reg, put)
     if asusual
-	exe "nn <script> <sid>put" l:count.'"'.reg.putcmd."<sid>restore"
+	exe "nn <script> <sid>put" l:count.'"'.reg.putcmd."<sid>setrepeat<sid>restore"
     else
 	" e.g. 3p -> p2p, 3P -> P2p, 3gp -> p2gp, 3gP -> P2gp
 	exe 'nn <sid>pone' '"'.reg.nogput."`]"
@@ -200,10 +201,27 @@ function! <sid>Smartput(putcmd)
     endif
 endfunction
 
+" SmartputRepeat: recognize words and adjust spaces and commas {{{1
+function! <sid>SmartputRepeat()
+    call s:Smartput(s:putcmd)
+endfunction
+
 " Restore: Undo the temporary register modification {{{1
 function! s:Restore()
     call setreg(s:save_reg[0], s:save_reg[1])
     unlet s:save_reg
+    return ''
+endfunction
+
+" SetCount: Store the count given by the user for repeating before the recursive call decreases it. {{{1
+function! s:SetCount()
+    let s:count = v:count1
+    silent! call repeat#setreg("\<plug>SmartputRepeat", v:register)
+endfunction
+
+" Repeat: Set up repeat.vim {{{1
+function! s:SetRepeat()
+    silent! call repeat#set("\<plug>SmartputRepeat", s:count)
     return ''
 endfunction
 
@@ -239,10 +257,10 @@ function! s:SmartputToggle(arg)
 	return
     endif
     if s:enable
-	nn <script><silent> P  :<c-u>call<sid>Smartput('P')<cr><sid>put
-	nn <script><silent> p  :<c-u>call<sid>Smartput('p')<cr><sid>put
-	nn <script><silent> gP :<c-u>call<sid>Smartput('gP')<cr><sid>put
-	nn <script><silent> gp :<c-u>call<sid>Smartput('gp')<cr><sid>put
+	nn <script><silent> P  :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('P')<cr><sid>put
+	nn <script><silent> p  :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('p')<cr><sid>put
+	nn <script><silent> gP :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('gP')<cr><sid>put
+	nn <script><silent> gp :<c-u>call<sid>SetCount()<bar>call<sid>Smartput('gp')<cr><sid>put
 	" XXX using <expr> would be much easier but exclude too many older
 	" Vim7s with the count bug
     else
@@ -264,7 +282,9 @@ endfunc
 " Commands, Mappings, Inits: {{{1
 com! -bar -nargs=? -complete=custom,s:SmaToCompl SmartputToggle call s:SmartputToggle(<q-args>)
 nn <plug>SmartputToggle :SmartputToggle<cr>
+nn <script> <plug>SmartputRepeat :<c-u>call<sid>SetCount()<bar>call<sid>SmartputRepeat()<cr><sid>put
 nn <silent> <expr> <sid>restore <sid>Restore()
+nn <silent> <expr> <sid>setrepeat <sid>SetRepeat()
 
 if !hasmapto("<plug>SmartputToggle", "n")
     try

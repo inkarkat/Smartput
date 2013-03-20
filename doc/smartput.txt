@@ -31,6 +31,9 @@ Smartput is a plugin, you can put it in a |plugin| folder of your
 'runtimepath' or |:source| it directly.  Typical locations:
 	~/.vim/plugin/smartput.vim				(Unix) ~
 	{programs-folder}\vim\vimfiles\plugin\smartput.vim	(Win)~
+Install the optional repeat.vim (vimscript #2136) plugin to enable the smart
+adjustments when repeating pastes with the |.| command.
+
 Do not forget Smartput has been enabled (to not blame Vim for odd bugs you
 might face ;-).  I keep it on all the time and enjoy it most of the time ;-).
 
@@ -67,7 +70,7 @@ Standard put also applies if the register content is not characterwise!
 Notes:
 The "xp" trick is still supported (mentioned here: |usr_04|, search /xp ).
 
-When repeating the put, no adjustment takes place (of course).
+When repeating the put, no adjustment takes place unless you use repeat.vim.
 
 When repeating a put-with-count, in some cases the repetition includes one
 less instance of the put text.  E.g. "3p." on an empty line with "abc" in the
@@ -298,9 +301,6 @@ Bugs:
   inserted left from cursor
 + put with count doesn't work in empty line and at EOL without trailing
   space
-+ 13-12-2007 You cannot repeat a put with the "." command.  This is currently
-  a limit in Vim, workarounds are difficult; feedkeys() might help, but it is
-  not safe to use if commands follow.
 + 13-12-2007 Also the  "1p........  trick doesn't work |redo-register|.
 + user should avoid 'virtualedit=onemore'
 v0.6 16-12-2007
