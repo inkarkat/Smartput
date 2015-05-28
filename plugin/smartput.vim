@@ -285,10 +285,10 @@ function! s:SmartputToggle(arg)
 	return
     endif
     if s:enable
-	nn <script><silent> P  :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('P')<cr><sid>put
-	nn <script><silent> p  :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('p')<cr><sid>put
-	nn <script><silent> gP :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gP')<cr><sid>put
-	nn <script><silent> gp :<c-u>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gp')<cr><sid>put
+	nn <script><silent> P  :<c-u>call setline('.', getline('.'))<Bar>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('P')<cr><sid>put
+	nn <script><silent> p  :<c-u>call setline('.', getline('.'))<Bar>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('p')<cr><sid>put
+	nn <script><silent> gP :<c-u>call setline('.', getline('.'))<Bar>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gP')<cr><sid>put
+	nn <script><silent> gp :<c-u>call setline('.', getline('.'))<Bar>call<sid>SetCount()<bar>if v:register==#'='<bar>let g:smartput_expr=getreg('=')<bar>endif<bar>call<sid>Smartput('gp')<cr><sid>put
 	" XXX using <expr> would be much easier but exclude too many older
 	" Vim7s with the count bug
     else
